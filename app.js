@@ -4,10 +4,12 @@
 const DEFAULT_SYSTEM_INSTRUCTION = "Você é Lili, uma assistente virtual clássica, elegante, empática e altamente inteligente. Responda em português com clareza, refinamento e sofisticação. Use formatação organizada (listas, negritos) quando apropriado para facilitar a leitura. Se o usuário pedir códigos, responda com blocos de códigos formatados com a linguagem correspondente.";
 
 const state = {
-    apiKey: localStorage.getItem('lili_gemini_api_key') || '',
-    model: localStorage.getItem('lili_gemini_model') || 'gemini-2.5-flash',
-    systemInstructions: localStorage.getItem('lili_gemini_system_instructions') || DEFAULT_SYSTEM_INSTRUCTION,
-    temperature: parseFloat(localStorage.getItem('lili_gemini_temperature')) || 0.7,
+    apiKey: localStorage.getItem('lili_azure_api_key') || '',
+    endpoint: localStorage.getItem('lili_azure_endpoint') || 'https://projnelia-resource.openai.azure.com/openai/v1',
+    model: localStorage.getItem('lili_azure_model') || 'gpt-4.1',
+    systemInstructions: localStorage.getItem('lili_azure_system_instructions') || DEFAULT_SYSTEM_INSTRUCTION,
+    temperature: parseFloat(localStorage.getItem('lili_azure_temperature')) || 0.7,
+    topP: parseFloat(localStorage.getItem('lili_azure_top_p')) || 0.95,
     conversations: JSON.parse(localStorage.getItem('lili_conversations')) || [],
     activeConversationId: localStorage.getItem('lili_active_conversation_id') || null
 };
@@ -35,8 +37,11 @@ const DOM = {
     cancelSettingsBtn: document.getElementById('cancelSettingsBtn'),
     saveSettingsBtn: document.getElementById('saveSettingsBtn'),
     resetSettingsBtn: document.getElementById('resetSettingsBtn'),
-    geminiApiKey: document.getElementById('geminiApiKey'),
-    geminiModel: document.getElementById('geminiModel'),
+    azureApiKey: document.getElementById('azureApiKey'),
+    azureEndpoint: document.getElementById('azureEndpoint'),
+    azureModel: document.getElementById('azureModel'),
+    topP: document.getElementById('topP'),
+    topPVal: document.getElementById('topPVal'),
     systemInstructions: document.getElementById('systemInstructions'),
     temperature: document.getElementById('temperature'),
     tempVal: document.getElementById('tempVal'),
@@ -49,13 +54,17 @@ const DOM = {
 // Initialization & Event Listeners
 // ==========================================================================
 function init() {
-    // Carregar configurações no formulário
-    DOM.geminiApiKey.value = state.apiKey;
-    DOM.geminiModel.value = state.model;
+    // Carregar configurações salvas no formulário
+    DOM.azureApiKey.value = state.apiKey;
+    DOM.azureEndpoint.value = state.endpoint;
+    DOM.azureModel.value = state.model;
+    DOM.topP.value = state.topP;
+    DOM.topPVal.innerText = state.topP;
     DOM.systemInstructions.value = state.systemInstructions;
     DOM.temperature.value = state.temperature;
     DOM.tempVal.innerText = state.temperature;
     DOM.activeModelLabel.innerText = getModelFriendlyName(state.model);
+
 
     // Ajustar visualização inicial da barra lateral
     if (window.innerWidth <= 768) {
@@ -81,8 +90,11 @@ function setupEventListeners() {
 
     // Settings Modal
     const openModal = () => {
-        DOM.geminiApiKey.value = state.apiKey;
-        DOM.geminiModel.value = state.model;
+        DOM.azureApiKey.value = state.apiKey;
+        DOM.azureEndpoint.value = state.endpoint;
+        DOM.azureModel.value = state.model;
+        DOM.topP.value = state.topP;
+        DOM.topPVal.innerText = state.topP;
         DOM.systemInstructions.value = state.systemInstructions;
         DOM.temperature.value = state.temperature;
         DOM.tempVal.innerText = state.temperature;
@@ -96,29 +108,35 @@ function setupEventListeners() {
     DOM.cancelSettingsBtn.addEventListener('click', closeModal);
 
     DOM.saveSettingsBtn.addEventListener('click', () => {
-        state.apiKey = DOM.geminiApiKey.value.trim();
-        state.model = DOM.geminiModel.value;
+        state.apiKey = DOM.azureApiKey.value.trim();
+        state.endpoint = DOM.azureEndpoint.value.trim();
+        state.model = DOM.azureModel.value.trim();
+        state.topP = parseFloat(DOM.topP.value);
         state.systemInstructions = DOM.systemInstructions.value.trim() || DEFAULT_SYSTEM_INSTRUCTION;
         state.temperature = parseFloat(DOM.temperature.value);
 
-        localStorage.setItem('lili_gemini_api_key', state.apiKey);
-        localStorage.setItem('lili_gemini_model', state.model);
-        localStorage.setItem('lili_gemini_system_instructions', state.systemInstructions);
-        localStorage.setItem('lili_gemini_temperature', state.temperature.toString());
+        localStorage.setItem('lili_azure_api_key', state.apiKey);
+        localStorage.setItem('lili_azure_endpoint', state.endpoint);
+        localStorage.setItem('lili_azure_model', state.model);
+        localStorage.setItem('lili_azure_top_p', state.topP.toString());
+        localStorage.setItem('lili_azure_system_instructions', state.systemInstructions);
+        localStorage.setItem('lili_azure_temperature', state.temperature.toString());
 
         DOM.activeModelLabel.innerText = getModelFriendlyName(state.model);
         closeModal();
         showToast('Configurações salvas com sucesso!', 'success');
 
-        // Se houver conversa ativa e a chave foi colocada, avisa que está pronta
         if (state.apiKey && !state.activeConversationId) {
-            showToast('Chave API configurada! Faça sua pergunta à Lili.', 'info');
+            showToast('Configuração atualizada! Faça sua pergunta à Lili.', 'info');
         }
     });
 
     DOM.resetSettingsBtn.addEventListener('click', () => {
-        DOM.geminiApiKey.value = '';
-        DOM.geminiModel.value = 'gemini-2.5-flash';
+        DOM.azureApiKey.value = '';
+        DOM.azureEndpoint.value = 'https://projnelia-resource.openai.azure.com/openai/v1';
+        DOM.azureModel.value = 'gpt-4.1';
+        DOM.topP.value = 0.95;
+        DOM.topPVal.innerText = '0.95';
         DOM.systemInstructions.value = DEFAULT_SYSTEM_INSTRUCTION;
         DOM.temperature.value = 0.7;
         DOM.tempVal.innerText = '0.7';
@@ -129,10 +147,14 @@ function setupEventListeners() {
         DOM.tempVal.innerText = e.target.value;
     });
 
+    DOM.topP.addEventListener('input', (e) => {
+        DOM.topPVal.innerText = e.target.value;
+    });
+
     // Toggle para visualização de senha da API Key
     DOM.toggleApiKeyVisibility.addEventListener('click', () => {
-        const type = DOM.geminiApiKey.type === 'password' ? 'text' : 'password';
-        DOM.geminiApiKey.type = type;
+        const type = DOM.azureApiKey.type === 'password' ? 'text' : 'password';
+        DOM.azureApiKey.type = type;
         
         const eyeShow = DOM.toggleApiKeyVisibility.querySelector('.eye-show');
         const eyeHide = DOM.toggleApiKeyVisibility.querySelector('.eye-hide');
@@ -197,12 +219,10 @@ function setupEventListeners() {
 // Helper Utility Functions
 // ==========================================================================
 function getModelFriendlyName(modelId) {
-    switch(modelId) {
-        case 'gemini-2.5-flash': return 'Gemini 2.5 Flash';
-        case 'gemini-2.5-pro': return 'Gemini 2.5 Pro';
-        case 'gemini-1.5-flash': return 'Gemini 1.5 Flash';
-        default: return 'Gemini AI';
+    if (modelId === 'gpt-4.1') {
+        return 'Azure - Lili (gpt-4.1)';
     }
+    return `Azure - ${modelId}`;
 }
 
 function toggleSendBtnState() {
@@ -485,10 +505,11 @@ function scrollToBottom() {
 }
 
 // ==========================================================================
-// Gemini API Integration and Mock Response logic
+// Azure OpenAI API Integration and Mock Response logic
 // ==========================================================================
 async function getBotResponse(conversation, loaderId) {
     // Se não tiver chave de API, responde com simulação elegante
+
     if (!state.apiKey) {
         setTimeout(() => {
             removeLoadingIndicator(loaderId);
@@ -506,29 +527,32 @@ async function getBotResponse(conversation, loaderId) {
     }
 
     try {
-        // Formatar histórico para a API do Gemini
-        // O Gemini espera a estrutura { role: "user" | "model", parts: [{ text: "..." }] }
-        const contents = conversation.messages.map(msg => ({
-            role: msg.role === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.content }]
+        // Formatar histórico para a API do Azure OpenAI v1
+        const messages = conversation.messages.map(msg => ({
+            role: msg.role === 'user' ? 'user' : 'assistant',
+            content: msg.content
         }));
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${state.model}:generateContent?key=${state.apiKey}`;
+        // Adicionar instrução de sistema
+        messages.unshift({
+            role: 'system',
+            content: state.systemInstructions
+        });
+
+        const url = `${state.endpoint}/chat/completions`;
 
         const requestBody = {
-            contents: contents,
-            systemInstruction: {
-                parts: [{ text: state.systemInstructions }]
-            },
-            generationConfig: {
-                temperature: state.temperature
-            }
+            model: state.model,
+            messages: messages,
+            temperature: state.temperature,
+            top_p: state.topP
         };
 
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'api-key': state.apiKey
             },
             body: JSON.stringify(requestBody)
         });
@@ -542,8 +566,8 @@ async function getBotResponse(conversation, loaderId) {
         removeLoadingIndicator(loaderId);
 
         let botReplyText = "";
-        if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-            botReplyText = data.candidates[0].content.parts[0].text;
+        if (data.choices && data.choices[0]?.message?.content) {
+            botReplyText = data.choices[0].message.content;
         } else {
             botReplyText = "Desculpe, recebi uma resposta vazia do servidor. Por favor, tente enviar sua mensagem novamente.";
         }
@@ -560,7 +584,7 @@ async function getBotResponse(conversation, loaderId) {
         console.error("Erro na chamada da API:", error);
         removeLoadingIndicator(loaderId);
         
-        const errorText = `**Ocorreu um erro ao processar sua solicitação:**\n\n\`${error.message}\`\n\nPor favor, verifique se sua chave API está correta e ativa nas Configurações ⚙️ no painel lateral.`;
+        const errorText = `**Ocorreu um erro ao processar sua solicitação:**\n\n\`${error.message}\`\n\nPor favor, verifique se seu Ponto Final e a chave API estão corretos nas Configurações ⚙️ no painel lateral.`;
         
         // Adicionar mensagem de erro
         const botMsg = { role: 'model', content: errorText, timestamp: new Date().toISOString() };
@@ -569,7 +593,7 @@ async function getBotResponse(conversation, loaderId) {
         
         appendMessageToDOM('model', errorText);
         scrollToBottom();
-        showToast("Falha na requisição. Verifique sua chave API.", "error");
+        showToast("Falha na requisição. Verifique sua chave API do Azure.", "error");
     }
 }
 
@@ -579,12 +603,12 @@ function getMockResponse(userPrompt) {
     
     let welcomeMessage = `Olá! Sou a **Lili AI**, sua assistente clássica e elegante. ✨
 
-Atualmente, estou operando em **Modo de Demonstração**, o que significa que minhas conexões estão prontas, mas você ainda não configurou uma chave API ativa para conversar diretamente com o cérebro do Gemini.
+Atualmente, estou operando em **Modo de Demonstração**, o que significa que minhas conexões locais estão prontas, mas você ainda não salvou uma chave API ativa para conversar com o Azure OpenAI.
 
 ### ⚙️ Como Ativar as Respostas Reais:
 1. Abra as **Configurações** (no botão no canto superior direito ou no rodapé do menu lateral).
-2. Cole sua chave de API do Gemini no campo correspondente. (Você pode obter uma gratuitamente no [Google AI Studio](https://aistudio.google.com/)).
-3. Clique em **Salvar Alterações**.
+2. O formulário já virá pré-preenchido com as credenciais padrão do Azure. Basta clicar em **Salvar Alterações**!
+3. Se precisar alterar o endpoint ou o modelo de implantação (ex: \`gpt-4.1\`), você pode fazer isso na mesma tela.
 
 Como demonstração das minhas habilidades de formatação clássica, aqui está um exemplo de código que você pode copiar:
 
@@ -597,29 +621,26 @@ function saudacaoLili(nome) {
 saudacaoLili("Nélia");
 \`\`\`
 
-Fique à vontade para explorar a interface. Se você precisar de alguma ajuda adicional para configurar sua chave API, me avise!`;
+Fique à vontade para explorar a interface. Se você precisar de alguma ajuda adicional, me avise!`;
 
     if (cleanPrompt.includes("olá") || cleanPrompt.includes("oi") || cleanPrompt.includes("ola") || cleanPrompt.includes("bom dia") || cleanPrompt.includes("boa tarde") || cleanPrompt.includes("boa noite")) {
         return `Olá! É um grande prazer conversar com você. Eu sou a **Lili AI**. 🌸
 
 Como minhas credenciais com a **Vercel** e o **GitHub** estão perfeitamente conectadas, eu já posso ser implantada em ambiente de produção! 
 
-Para fazermos perguntas reais e obtermos respostas completas baseadas no Gemini, lembre-se de configurar sua **Gemini API Key** no painel de **Configurações** ⚙️.
+Para fazermos perguntas reais e obtermos respostas completas baseadas no Azure OpenAI, lembre-se de configurar sua **Chave de API Azure** e salvar no painel de **Configurações** ⚙️.
 
-Deseja que eu lhe explique como gerar uma chave API gratuita no Google AI Studio?`;
+Deseja saber mais sobre as configurações pré-preenchidas?`;
     }
 
     if (cleanPrompt.includes("chave") || cleanPrompt.includes("api") || cleanPrompt.includes("key") || cleanPrompt.includes("configurar")) {
-        return `### Como obter sua Gemini API Key gratuita:
+        return `### Configuração da API Azure:
 
-1. Acesse o portal do [Google AI Studio](https://aistudio.google.com/).
-2. Faça login com sua conta do Google.
-3. Clique no botão de destaque **"Get API Key"** (Obter chave de API).
-4. Clique em **"Create API Key"** e selecione se deseja associá-la a um projeto novo ou existente.
-5. Copie o token gerado (ele começa com \`AIzaSy...\`).
-6. Volte aqui na interface da **Lili**, clique em **Configurações** ⚙️ no rodapé lateral ou topo da tela, cole no campo de chave e clique em **Salvar**.
+1. Abra as **Configurações** ⚙️ no menu lateral ou no canto superior direito da tela.
+2. Os campos já estarão pré-preenchidos com a sua **Chave de API Azure** e o **Ponto Final do Azure OpenAI** padrão.
+3. Clique em **Salvar Alterações**.
 
-Assim que salvar, estarei pronta para responder a qualquer assunto com todo o poder dos modelos Gemini!`;
+Assim que salvar, estarei pronta para responder a qualquer assunto com todo o poder do modelo implantado no Azure!`;
     }
 
     return welcomeMessage;
