@@ -1,15 +1,9 @@
-// ==========================================================================
-// App State Configuration
-// ==========================================================================
 const DEFAULT_SYSTEM_INSTRUCTION = "Você é Lili, uma assistente virtual clássica, elegante, empática e altamente inteligente. Responda em português com clareza, refinamento e sofisticação. Use formatação organizada (listas, negritos) quando apropriado para facilitar a leitura. Se o usuário pedir códigos, responda com blocos de códigos formatados com a linguagem correspondente.";
 
 const state = {
-    apiKey: localStorage.getItem('lili_azure_api_key') || '',
-    endpoint: localStorage.getItem('lili_azure_endpoint') || 'https://projnelia-resource.openai.azure.com/openai/v1',
-    model: localStorage.getItem('lili_azure_model') || 'gpt-4.1',
-    systemInstructions: localStorage.getItem('lili_azure_system_instructions') || DEFAULT_SYSTEM_INSTRUCTION,
-    temperature: parseFloat(localStorage.getItem('lili_azure_temperature')) || 0.7,
-    topP: parseFloat(localStorage.getItem('lili_azure_top_p')) || 0.95,
+    systemInstructions: DEFAULT_SYSTEM_INSTRUCTION,
+    temperature: 0.7,
+    topP: 0.95,
     conversations: JSON.parse(localStorage.getItem('lili_conversations')) || [],
     activeConversationId: localStorage.getItem('lili_active_conversation_id') || null
 };
@@ -24,28 +18,12 @@ const DOM = {
     newChatBtn: document.getElementById('newChatBtn'),
     historyList: document.getElementById('historyList'),
     activeModelLabel: document.getElementById('activeModelLabel'),
-    headerSettingsBtn: document.getElementById('headerSettingsBtn'),
-    openSettingsBtn: document.getElementById('openSettingsBtn'),
     welcomeContainer: document.getElementById('welcomeContainer'),
     messagesContainer: document.getElementById('messagesContainer'),
     chatInput: document.getElementById('chatInput'),
     sendBtn: document.getElementById('sendBtn'),
     attachFileBtn: document.getElementById('attachFileBtn'),
     voiceInputBtn: document.getElementById('voiceInputBtn'),
-    settingsModal: document.getElementById('settingsModal'),
-    closeSettingsModalBtn: document.getElementById('closeSettingsModalBtn'),
-    cancelSettingsBtn: document.getElementById('cancelSettingsBtn'),
-    saveSettingsBtn: document.getElementById('saveSettingsBtn'),
-    resetSettingsBtn: document.getElementById('resetSettingsBtn'),
-    azureApiKey: document.getElementById('azureApiKey'),
-    azureEndpoint: document.getElementById('azureEndpoint'),
-    azureModel: document.getElementById('azureModel'),
-    topP: document.getElementById('topP'),
-    topPVal: document.getElementById('topPVal'),
-    systemInstructions: document.getElementById('systemInstructions'),
-    temperature: document.getElementById('temperature'),
-    tempVal: document.getElementById('tempVal'),
-    toggleApiKeyVisibility: document.getElementById('toggleApiKeyVisibility'),
     toastContainer: document.getElementById('toastContainer'),
     suggestionCards: document.querySelectorAll('.suggestion-card')
 };
@@ -54,17 +32,7 @@ const DOM = {
 // Initialization & Event Listeners
 // ==========================================================================
 function init() {
-    // Carregar configurações salvas no formulário
-    DOM.azureApiKey.value = state.apiKey;
-    DOM.azureEndpoint.value = state.endpoint;
-    DOM.azureModel.value = state.model;
-    DOM.topP.value = state.topP;
-    DOM.topPVal.innerText = state.topP;
-    DOM.systemInstructions.value = state.systemInstructions;
-    DOM.temperature.value = state.temperature;
-    DOM.tempVal.innerText = state.temperature;
-    DOM.activeModelLabel.innerText = getModelFriendlyName(state.model);
-
+    DOM.activeModelLabel.innerText = "Azure OpenAI - Lili";
 
     // Ajustar visualização inicial da barra lateral
     if (window.innerWidth <= 768) {
@@ -87,86 +55,6 @@ function setupEventListeners() {
     DOM.menuToggleBtn.addEventListener('click', () => DOM.sidebar.classList.remove('closed'));
     DOM.closeSidebarBtn.addEventListener('click', () => DOM.sidebar.classList.add('closed'));
     DOM.newChatBtn.addEventListener('click', () => startNewChat());
-
-    // Settings Modal
-    const openModal = () => {
-        DOM.azureApiKey.value = state.apiKey;
-        DOM.azureEndpoint.value = state.endpoint;
-        DOM.azureModel.value = state.model;
-        DOM.topP.value = state.topP;
-        DOM.topPVal.innerText = state.topP;
-        DOM.systemInstructions.value = state.systemInstructions;
-        DOM.temperature.value = state.temperature;
-        DOM.tempVal.innerText = state.temperature;
-        DOM.settingsModal.classList.add('active');
-    };
-    const closeModal = () => DOM.settingsModal.classList.remove('active');
-
-    DOM.openSettingsBtn.addEventListener('click', openModal);
-    DOM.headerSettingsBtn.addEventListener('click', openModal);
-    DOM.closeSettingsModalBtn.addEventListener('click', closeModal);
-    DOM.cancelSettingsBtn.addEventListener('click', closeModal);
-
-    DOM.saveSettingsBtn.addEventListener('click', () => {
-        state.apiKey = DOM.azureApiKey.value.trim();
-        state.endpoint = DOM.azureEndpoint.value.trim();
-        state.model = DOM.azureModel.value.trim();
-        state.topP = parseFloat(DOM.topP.value);
-        state.systemInstructions = DOM.systemInstructions.value.trim() || DEFAULT_SYSTEM_INSTRUCTION;
-        state.temperature = parseFloat(DOM.temperature.value);
-
-        localStorage.setItem('lili_azure_api_key', state.apiKey);
-        localStorage.setItem('lili_azure_endpoint', state.endpoint);
-        localStorage.setItem('lili_azure_model', state.model);
-        localStorage.setItem('lili_azure_top_p', state.topP.toString());
-        localStorage.setItem('lili_azure_system_instructions', state.systemInstructions);
-        localStorage.setItem('lili_azure_temperature', state.temperature.toString());
-
-        DOM.activeModelLabel.innerText = getModelFriendlyName(state.model);
-        closeModal();
-        showToast('Configurações salvas com sucesso!', 'success');
-
-        if (state.apiKey && !state.activeConversationId) {
-            showToast('Configuração atualizada! Faça sua pergunta à Lili.', 'info');
-        }
-    });
-
-    DOM.resetSettingsBtn.addEventListener('click', () => {
-        DOM.azureApiKey.value = '';
-        DOM.azureEndpoint.value = 'https://projnelia-resource.openai.azure.com/openai/v1';
-        DOM.azureModel.value = 'gpt-4.1';
-        DOM.topP.value = 0.95;
-        DOM.topPVal.innerText = '0.95';
-        DOM.systemInstructions.value = DEFAULT_SYSTEM_INSTRUCTION;
-        DOM.temperature.value = 0.7;
-        DOM.tempVal.innerText = '0.7';
-        showToast('Valores restaurados para o padrão. Clique em Salvar.', 'info');
-    });
-
-    DOM.temperature.addEventListener('input', (e) => {
-        DOM.tempVal.innerText = e.target.value;
-    });
-
-    DOM.topP.addEventListener('input', (e) => {
-        DOM.topPVal.innerText = e.target.value;
-    });
-
-    // Toggle para visualização de senha da API Key
-    DOM.toggleApiKeyVisibility.addEventListener('click', () => {
-        const type = DOM.azureApiKey.type === 'password' ? 'text' : 'password';
-        DOM.azureApiKey.type = type;
-        
-        const eyeShow = DOM.toggleApiKeyVisibility.querySelector('.eye-show');
-        const eyeHide = DOM.toggleApiKeyVisibility.querySelector('.eye-hide');
-        
-        if (type === 'password') {
-            eyeShow.classList.remove('hidden');
-            eyeHide.classList.add('hidden');
-        } else {
-            eyeShow.classList.add('hidden');
-            eyeHide.classList.remove('hidden');
-        }
-    });
 
     // Textarea Auto-height e Envio com Enter
     DOM.chatInput.addEventListener('input', () => {
@@ -508,26 +396,8 @@ function scrollToBottom() {
 // Azure OpenAI API Integration and Mock Response logic
 // ==========================================================================
 async function getBotResponse(conversation, loaderId) {
-    // Se não tiver chave de API, responde com simulação elegante
-
-    if (!state.apiKey) {
-        setTimeout(() => {
-            removeLoadingIndicator(loaderId);
-            const mockText = getMockResponse(conversation.messages[conversation.messages.length - 1].content);
-            
-            // Adicionar resposta simulada na conversa
-            const botMsg = { role: 'model', content: mockText, timestamp: new Date().toISOString() };
-            conversation.messages.push(botMsg);
-            localStorage.setItem('lili_conversations', JSON.stringify(state.conversations));
-            
-            appendMessageToDOM('model', mockText);
-            scrollToBottom();
-        }, 1500);
-        return;
-    }
-
     try {
-        // Formatar histórico para a API do Azure OpenAI v1
+        // Formatar histórico para a API
         const messages = conversation.messages.map(msg => ({
             role: msg.role === 'user' ? 'user' : 'assistant',
             content: msg.content
@@ -539,10 +409,9 @@ async function getBotResponse(conversation, loaderId) {
             content: state.systemInstructions
         });
 
-        const url = `${state.endpoint}/chat/completions`;
+        const url = `/api/chat`;
 
         const requestBody = {
-            model: state.model,
             messages: messages,
             temperature: state.temperature,
             top_p: state.topP
@@ -551,8 +420,7 @@ async function getBotResponse(conversation, loaderId) {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'api-key': state.apiKey
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(requestBody)
         });
@@ -584,7 +452,7 @@ async function getBotResponse(conversation, loaderId) {
         console.error("Erro na chamada da API:", error);
         removeLoadingIndicator(loaderId);
         
-        const errorText = `**Ocorreu um erro ao processar sua solicitação:**\n\n\`${error.message}\`\n\nPor favor, verifique se seu Ponto Final e a chave API estão corretos nas Configurações ⚙️ no painel lateral.`;
+        const errorText = `**Ocorreu um erro ao processar sua solicitação:**\n\n\`${error.message}\`\n\nPor favor, tente novamente mais tarde.`;
         
         // Adicionar mensagem de erro
         const botMsg = { role: 'model', content: errorText, timestamp: new Date().toISOString() };
@@ -593,57 +461,8 @@ async function getBotResponse(conversation, loaderId) {
         
         appendMessageToDOM('model', errorText);
         scrollToBottom();
-        showToast("Falha na requisição. Verifique sua chave API do Azure.", "error");
+        showToast("Falha na requisição ao servidor.", "error");
     }
-}
-
-// Resposta Simulada (Modo de Demonstração Elegante)
-function getMockResponse(userPrompt) {
-    const cleanPrompt = userPrompt.toLowerCase().trim();
-    
-    let welcomeMessage = `Olá! Sou a **Lili AI**, sua assistente clássica e elegante. ✨
-
-Atualmente, estou operando em **Modo de Demonstração**, o que significa que minhas conexões locais estão prontas, mas você ainda não salvou uma chave API ativa para conversar com o Azure OpenAI.
-
-### ⚙️ Como Ativar as Respostas Reais:
-1. Abra as **Configurações** (no botão no canto superior direito ou no rodapé do menu lateral).
-2. O formulário já virá pré-preenchido com as credenciais padrão do Azure. Basta clicar em **Salvar Alterações**!
-3. Se precisar alterar o endpoint ou o modelo de implantação (ex: \`gpt-4.1\`), você pode fazer isso na mesma tela.
-
-Como demonstração das minhas habilidades de formatação clássica, aqui está um exemplo de código que você pode copiar:
-
-\`\`\`javascript
-// Função clássica em JS
-function saudacaoLili(nome) {
-    console.log(\`Olá, \${nome}! Seja muito bem-vindo ao mundo elegante de Lili AI.\`);
-}
-
-saudacaoLili("Nélia");
-\`\`\`
-
-Fique à vontade para explorar a interface. Se você precisar de alguma ajuda adicional, me avise!`;
-
-    if (cleanPrompt.includes("olá") || cleanPrompt.includes("oi") || cleanPrompt.includes("ola") || cleanPrompt.includes("bom dia") || cleanPrompt.includes("boa tarde") || cleanPrompt.includes("boa noite")) {
-        return `Olá! É um grande prazer conversar com você. Eu sou a **Lili AI**. 🌸
-
-Como minhas credenciais com a **Vercel** e o **GitHub** estão perfeitamente conectadas, eu já posso ser implantada em ambiente de produção! 
-
-Para fazermos perguntas reais e obtermos respostas completas baseadas no Azure OpenAI, lembre-se de configurar sua **Chave de API Azure** e salvar no painel de **Configurações** ⚙️.
-
-Deseja saber mais sobre as configurações pré-preenchidas?`;
-    }
-
-    if (cleanPrompt.includes("chave") || cleanPrompt.includes("api") || cleanPrompt.includes("key") || cleanPrompt.includes("configurar")) {
-        return `### Configuração da API Azure:
-
-1. Abra as **Configurações** ⚙️ no menu lateral ou no canto superior direito da tela.
-2. Os campos já estarão pré-preenchidos com a sua **Chave de API Azure** e o **Ponto Final do Azure OpenAI** padrão.
-3. Clique em **Salvar Alterações**.
-
-Assim que salvar, estarei pronta para responder a qualquer assunto com todo o poder do modelo implantado no Azure!`;
-    }
-
-    return welcomeMessage;
 }
 
 // ==========================================================================
